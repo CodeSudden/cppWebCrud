@@ -1,0 +1,15 @@
+Exception: bad allocation
+Exception: bad allocation
+Wt Dbo Exception: Class class User was not mapped.
+Exception: bad allocation
+Wt Dbo Exception: Class class User was not mapped.
+Wt Dbo Exception: Class class User was not mapped.
+Wt Dbo Exception: Class class User was not mapped.
+Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown server host 'user' (11001)
+Wt Dbo Exception: Class class User was not mapped.
+Wt Dbo Exception: Class class user was not mapped.
+Wt Dbo Exception: Class class user was not mapped.
+Wt Dbo Exception: Class class user was not mapped.
+Wt Dbo Exception: Operation requires an active transaction
+Wt Dbo Exception: Operation requires an active transaction
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "name", "age" from "user" ': Unknown column 'version' in 'field list'
