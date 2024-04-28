@@ -1,6 +1,9 @@
 #include <Wt/WApplication.h>
 #include <Wt/WContainerWidget.h>
 #include <Wt/WText.h>
+#include <Wt/WLineEdit.h>
+#include <Wt/WSpinBox.h>
+#include <Wt/WPushButton.h>
 #include <Wt/Dbo/Dbo.h>
 #include <Wt/Dbo/backend/MySQL.h>
 #include <iostream>
@@ -31,7 +34,7 @@ public:
 
 class MyApplication : public Wt::WApplication {
 public:
-    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env) {
+    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env),session() {
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -67,6 +70,30 @@ public:
             }
             root()->addWidget(std::make_unique<Wt::WText>(Wt::WString(allUsersInfo)));
 
+            // Create UI elements
+            auto inputName = std::make_unique<Wt::WLineEdit>();
+            auto inputAge = std::make_unique<Wt::WSpinBox>();
+            auto buttonAddUser = std::make_unique<Wt::WPushButton>("Add User");
+            auto buttonDeleteUser = std::make_unique<Wt::WPushButton>("Delete User");
+
+            root()->addWidget(std::move(inputName));
+            root()->addWidget(std::move(inputAge));
+            root()->addWidget(std::move(buttonAddUser));
+            root()->addWidget(std::move(buttonDeleteUser));
+
+            // Add connection for "Add User" button
+            buttonAddUser->clicked().connect([inputName = std::move(inputName), inputAge = inputAge.get(), this] {
+                std::string name = inputName->text().toUTF8();
+                int age = inputAge->value();
+                addUser(name, age);
+                });
+
+            // Add connection for "Delete User" button
+            buttonDeleteUser->clicked().connect([inputName = std::move(inputName), this] {
+                std::string name = inputName->text().toUTF8();
+                deleteUser(name);
+                });
+
             // Commit the transaction
             transaction.commit();
 
@@ -89,6 +116,42 @@ public:
             }
         }
     }
+
+    // CRUD operations
+    void addUser(const std::string& name, int age) {
+        // Start a transaction
+        dbo::Transaction transaction(session);
+
+        // Create a new user object
+        User::Ptr newUser = std::make_shared<User>();
+        newUser.modify()->name = name;
+        newUser.modify()->age = age;
+
+        // Persist the new user object to the database
+        session.add(newUser);
+
+        // Commit the transaction
+        transaction.commit();
+    }
+
+    void deleteUser(const std::string& name) {
+        // Start a transaction
+        dbo::Transaction transaction(session);
+
+        // Find the user to delete by name
+        dbo::ptr<User> userToDelete = session.find<User>().where("name = ?").bind(name);
+
+        // Delete the user
+        if (userToDelete) {
+            session.remove(userToDelete);
+        }
+
+        // Commit the transaction
+        transaction.commit();
+    }
+
+private:
+    dbo::Session session;
 };
 
 int main(int argc, char** argv) {
@@ -96,7 +159,7 @@ int main(int argc, char** argv) {
     try {
         return Wt::WRun(argc, argv, [](const Wt::WEnvironment& env) {
             return std::make_unique<MyApplication>(env);
-            });
+        });
     }
     catch (const std::exception& e) { // Catch exceptions from main
         std::cerr << "Exception: " << e.what() << std::endl;
