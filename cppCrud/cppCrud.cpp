@@ -1,40 +1,40 @@
 #include <Wt/WApplication.h>
 #include <Wt/WContainerWidget.h>
-#include <Wt/WText.h>
 #include <Wt/WLineEdit.h>
 #include <Wt/WSpinBox.h>
 #include <Wt/WPushButton.h>
 #include <Wt/Dbo/Dbo.h>
 #include <Wt/Dbo/backend/MySQL.h>
+#include <Wt/WTable.h>
 #include <iostream>
 #include <string>
 #include <fstream>
 
 namespace dbo = Wt::Dbo;
 
-class User;
+class stocks;
 
-typedef dbo::collection<typename dbo::ptr<User>> UsersCollection;
+typedef dbo::collection<typename dbo::ptr<stocks>> stocksCollection;
 
-class User : public dbo::Dbo<User> {
+class stocks : public dbo::Dbo<stocks> {
 public:
-    std::string name;
-    int age;
+    std::string item;
+    int stock;
 
-    User() : age(0) {}
+    stocks() : stock(0) {}
 
     template<class Action>
     void persist(Action& a) {
-        dbo::field(a, name, "name");
-        dbo::field(a, age, "age");
+        dbo::field(a, item, "item");
+        dbo::field(a, stock, "stock");
     }
 
-    typedef dbo::ptr<User> Ptr;
+    typedef dbo::ptr<stocks> Ptr;
 };
 
 class MyApplication : public Wt::WApplication {
 public:
-    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env),session() {
+    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env), session() {
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -46,53 +46,75 @@ public:
             logfile << "Connecting to database..." << std::endl;
 
             // Set up MySQL database connection
-            auto mysql = std::make_unique<Wt::Dbo::backend::MySQL>("user", "root", "", "localhost");
+            auto mysql = std::make_unique<Wt::Dbo::backend::MySQL>("cafems", "root", "", "localhost");
 
             logfile << "Database connected successfully." << std::endl;
 
             // Create a session with the MySQL backend
-            dbo::Session session;
             session.setConnection(std::move(mysql));
 
             // Start a transaction
             dbo::Transaction transaction(session);
 
             // Map User class to the database
-            session.mapClass<User>("user"); // Mapping User class to a table named "user"
+            session.mapClass<stocks>("stocks"); // Mapping User class to a table named "user"
 
             // Retrieve data from the database
-            UsersCollection users = session.find<User>();
+            stocksCollection itemstock = session.find<stocks>();
 
-            // Display user information
-            std::string allUsersInfo;
-            for (const auto& user : users) {
-                allUsersInfo += user->name + " - " + std::to_string(user->age) + "<br>";
+            // Display user information in a table
+            auto table = std::make_unique<Wt::WTable>();
+
+            // Add table headers
+            table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("item"));
+            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("stock"));
+
+            // Add user information to the table
+            int row = 1; // Start from row 1 to leave space for headers
+            for (const auto& stock : itemstock) {
+                table->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
+                table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
+                ++row;
             }
-            root()->addWidget(std::make_unique<Wt::WText>(Wt::WString(allUsersInfo)));
 
-            // Create UI elements
+            // Add table to root
+            root()->addWidget(std::move(table));
+
+            // Create UI elements with Bootstrap classes
+            auto container = std::make_unique<Wt::WContainerWidget>();
+            container->setStyleClass("container");
+
             auto inputName = std::make_unique<Wt::WLineEdit>();
-            auto inputAge = std::make_unique<Wt::WSpinBox>();
-            auto buttonAddUser = std::make_unique<Wt::WPushButton>("Add User");
-            auto buttonDeleteUser = std::make_unique<Wt::WPushButton>("Delete User");
+            inputName->setStyleClass("form-control");
 
-            root()->addWidget(std::move(inputName));
-            root()->addWidget(std::move(inputAge));
-            root()->addWidget(std::move(buttonAddUser));
-            root()->addWidget(std::move(buttonDeleteUser));
+            auto inputNamePtr = inputName.get();
+            container->addWidget(std::move(inputName));
 
-            // Add connection for "Add User" button
-            buttonAddUser->clicked().connect([inputName = std::move(inputName), inputAge = inputAge.get(), this] {
-                std::string name = inputName->text().toUTF8();
-                int age = inputAge->value();
-                addUser(name, age);
+            auto inputStock = std::make_unique<Wt::WSpinBox>();
+            inputStock->setStyleClass("form-control");
+            auto inputStockPtr = inputStock.get();
+            container->addWidget(std::move(inputStock));
+
+            auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Stock");
+            buttonAddStock->setStyleClass("btn btn-primary");
+
+            buttonAddStock->clicked().connect([this, &session, inputNamePtr, inputStockPtr] {
+                addStock(session, inputNamePtr->text().toUTF8(), inputStockPtr->value());
+                refreshTable(); // Refresh table after adding
                 });
+            container->addWidget(std::move(buttonAddStock));
 
-            // Add connection for "Delete User" button
-            buttonDeleteUser->clicked().connect([inputName = std::move(inputName), this] {
-                std::string name = inputName->text().toUTF8();
-                deleteUser(name);
+            auto buttonDeleteStock = std::make_unique<Wt::WPushButton>("Delete Stock");
+            buttonDeleteStock->setStyleClass("btn btn-danger");
+
+            buttonDeleteStock->clicked().connect([=] {
+                deleteStock(inputNamePtr->text().toUTF8());
+                refreshTable(); // Refresh table after deleting
                 });
+            container->addWidget(std::move(buttonDeleteStock));
+
+            // Add container to root
+            root()->addWidget(std::move(container));
 
             // Commit the transaction
             transaction.commit();
@@ -117,41 +139,55 @@ public:
         }
     }
 
-    // CRUD operations
-    void addUser(const std::string& name, int age) {
-        // Start a transaction
-        dbo::Transaction transaction(session);
-
-        // Create a new user object
-        User::Ptr newUser = std::make_shared<User>();
-        newUser.modify()->name = name;
-        newUser.modify()->age = age;
-
-        // Persist the new user object to the database
-        session.add(newUser);
-
-        // Commit the transaction
-        transaction.commit();
-    }
-
-    void deleteUser(const std::string& name) {
-        // Start a transaction
-        dbo::Transaction transaction(session);
-
-        // Find the user to delete by name
-        dbo::ptr<User> userToDelete = session.find<User>().where("name = ?").bind(name);
-
-        // Delete the user
-        if (userToDelete) {
-            session.remove(userToDelete);
-        }
-
-        // Commit the transaction
-        transaction.commit();
-    }
-
 private:
     dbo::Session session;
+
+    void addStock(dbo::Session& session, const std::string& item, int stock) {
+        dbo::Transaction transaction(session);
+        auto newStock = std::make_unique<stocks>();
+        newStock->item = item;
+        newStock->stock = stock;
+        session.add(std::move(newStock));
+        transaction.commit();
+    }
+
+
+    void deleteStock(const std::string& item) {
+        dbo::Transaction transaction(session);
+        auto existingStockPtr = session.find<stocks>().where("item = ?").bind(item).resultValue();
+        if (existingStockPtr) {
+            existingStockPtr.remove();
+        }
+        transaction.commit();
+    }
+
+    void refreshTable() {
+        // Clear current table
+        root()->clear();
+
+        // Refresh data and rebuild table
+        dbo::Transaction transaction(session);
+        stocksCollection itemstock = session.find<stocks>();
+
+        auto table = std::make_unique<Wt::WTable>();
+
+        // Add table headers
+        table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("item"));
+        table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("stock"));
+
+        // Add user information to the table
+        int row = 1; // Start from row 1 to leave space for headers
+        for (const auto& stock : itemstock) {
+            table->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
+            table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
+            ++row;
+        }
+
+        // Add table to root
+        root()->addWidget(std::move(table));
+
+        transaction.commit();
+    }
 };
 
 int main(int argc, char** argv) {
@@ -159,7 +195,7 @@ int main(int argc, char** argv) {
     try {
         return Wt::WRun(argc, argv, [](const Wt::WEnvironment& env) {
             return std::make_unique<MyApplication>(env);
-        });
+            });
     }
     catch (const std::exception& e) { // Catch exceptions from main
         std::cerr << "Exception: " << e.what() << std::endl;
