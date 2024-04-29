@@ -5,3 +5,6 @@ Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "i
 Wt Dbo Exception: error creating prepared statement: 'select count(1) from (select "id", "version", "id", "item", "stock" from "stocks" ) dbocount': Duplicate column name 'id'
 Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown server host ' W"V~' (11001)
 Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown server host '¥êÉW' (11001)
+Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
+Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown database 'cafems'
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "item", "stock" from "stocks" ': Unknown column 'stock' in 'field list'

@@ -34,7 +34,7 @@ public:
 
 class MyApplication : public Wt::WApplication {
 public:
-    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env), session() {
+    MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env) {
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -66,8 +66,8 @@ public:
             auto table = std::make_unique<Wt::WTable>();
 
             // Add table headers
-            table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("item"));
-            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("stock"));
+            table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"));
+            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"));
 
             // Add user information to the table
             int row = 1; // Start from row 1 to leave space for headers
@@ -86,7 +86,6 @@ public:
 
             auto inputName = std::make_unique<Wt::WLineEdit>();
             inputName->setStyleClass("form-control");
-
             auto inputNamePtr = inputName.get();
             container->addWidget(std::move(inputName));
 
@@ -98,7 +97,7 @@ public:
             auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Stock");
             buttonAddStock->setStyleClass("btn btn-primary");
 
-            buttonAddStock->clicked().connect([this, &session, inputNamePtr, inputStockPtr] {
+            buttonAddStock->clicked().connect([this, inputNamePtr, inputStockPtr] {
                 addStock(session, inputNamePtr->text().toUTF8(), inputStockPtr->value());
                 refreshTable(); // Refresh table after adding
                 });
@@ -107,8 +106,8 @@ public:
             auto buttonDeleteStock = std::make_unique<Wt::WPushButton>("Delete Stock");
             buttonDeleteStock->setStyleClass("btn btn-danger");
 
-            buttonDeleteStock->clicked().connect([=] {
-                deleteStock(inputNamePtr->text().toUTF8());
+            buttonDeleteStock->clicked().connect([this, inputNamePtr] {
+                deleteStock(session, inputNamePtr->text().toUTF8());
                 refreshTable(); // Refresh table after deleting
                 });
             container->addWidget(std::move(buttonDeleteStock));
@@ -151,12 +150,17 @@ private:
         transaction.commit();
     }
 
-
-    void deleteStock(const std::string& item) {
+    void deleteStock(dbo::Session& session, const std::string& item) {
         dbo::Transaction transaction(session);
-        auto existingStockPtr = session.find<stocks>().where("item = ?").bind(item).resultValue();
-        if (existingStockPtr) {
-            existingStockPtr.remove();
+        // Find the item in the session
+        dbo::ptr<stocks> stockPtr = session.find<stocks>().where("item = ?").bind(item);
+        // If the item exists, remove it from the session
+        if (stockPtr) {
+            stockPtr.remove(); // Remove the object from the session
+            std::cout << "Item removed from database: " << item << std::endl;
+        }
+        else {
+            std::cout << "Item not found in database: " << item << std::endl;
         }
         transaction.commit();
     }
@@ -172,15 +176,15 @@ private:
         auto table = std::make_unique<Wt::WTable>();
 
         // Add table headers
-        table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("item"));
-        table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("stock"));
+        table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"));
+        table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"));
 
         // Add user information to the table
         int row = 1; // Start from row 1 to leave space for headers
         for (const auto& stock : itemstock) {
             table->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
             table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
-            ++row;
+            ++row; 
         }
 
         // Add table to root
