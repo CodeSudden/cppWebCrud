@@ -6,6 +6,7 @@
 #include <Wt/Dbo/Dbo.h>
 #include <Wt/Dbo/backend/MySQL.h>
 #include <Wt/WTable.h>
+#include <Wt/WDialog.h>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -62,27 +63,11 @@ public:
             // Retrieve data from the database
             stocksCollection itemstock = session.find<stocks>();
 
-            // Display user information in a table
-            auto table = std::make_unique<Wt::WTable>();
-
-            // Add table headers
-            table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"));
-            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"));
-
-            // Add user information to the table
-            int row = 1; // Start from row 1 to leave space for headers
-            for (const auto& stock : itemstock) {
-                table->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
-                table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
-                ++row;
-            }
-
-            // Add table to root
-            root()->addWidget(std::move(table));
-
             // Create UI elements with Bootstrap classes
             auto container = std::make_unique<Wt::WContainerWidget>();
             container->setStyleClass("container");
+
+            container->addNew<Wt::WText>("Cafe Management System");
 
             auto inputName = std::make_unique<Wt::WLineEdit>();
             inputName->setStyleClass("form-control");
@@ -103,17 +88,36 @@ public:
                 });
             container->addWidget(std::move(buttonAddStock));
 
-            auto buttonDeleteStock = std::make_unique<Wt::WPushButton>("Delete Stock");
-            buttonDeleteStock->setStyleClass("btn btn-danger");
-
-            buttonDeleteStock->clicked().connect([this, inputNamePtr] {
-                deleteStock(session, inputNamePtr->text().toUTF8());
-                refreshTable(); // Refresh table after deleting
-                });
-            container->addWidget(std::move(buttonDeleteStock));
-
             // Add container to root
             root()->addWidget(std::move(container));
+
+            // Display user information in a table
+            auto table = std::make_unique<Wt::WTable>();
+
+            // Add table headers
+            table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"));
+            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"));
+            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("ACTION"));
+
+            // Add user information to the table
+            int row = 1; // Start from row 1 to leave space for headers
+            for (const auto& stock : itemstock) {
+                table->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
+                table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
+
+                // Create delete button for each row
+                auto deleteButton = std::make_unique<Wt::WPushButton>("Delete");
+                deleteButton->setStyleClass("btn btn-danger");
+                deleteButton->clicked().connect([this, stock]() {
+                    deleteStock(session, stock->item);
+                    refreshTable(); // Refresh table after deleting
+                    });
+                table->elementAt(row, 2)->addWidget(std::move(deleteButton)); // Assuming you have two columns already
+                ++row;
+            }
+
+            // Add table to root
+            root()->addWidget(std::move(table));
 
             // Commit the transaction
             transaction.commit();
