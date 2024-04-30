@@ -5,6 +5,8 @@
 #include <Wt/WPushButton.h>
 #include <Wt/Dbo/Dbo.h>
 #include <Wt/Dbo/backend/MySQL.h>
+#include <Wt/WBootstrap5Theme.h>
+#include <Wt/WHBoxLayout.h>
 #include <Wt/WTable.h>
 #include <Wt/WDialog.h>
 #include <iostream>
@@ -36,6 +38,8 @@ public:
 class MyApplication : public Wt::WApplication {
 public:
     MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env) {
+        auto app = WApplication::instance();
+        app->setTheme(std::make_shared<Wt::WBootstrap5Theme>());
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -67,19 +71,22 @@ public:
             auto container = std::make_unique<Wt::WContainerWidget>();
             container->setStyleClass("container");
 
-            container->addNew<Wt::WText>("Cafe Management System");
+            container->addNew<Wt::WText>("Cafe Management System")->setStyleClass("fs-1 fw-bold");
+            container->addNew<Wt::WBreak>();
 
+            container->addNew<Wt::WText>("Item:");
             auto inputName = std::make_unique<Wt::WLineEdit>();
             inputName->setStyleClass("form-control");
             auto inputNamePtr = inputName.get();
             container->addWidget(std::move(inputName));
 
+            container->addNew<Wt::WText>("Stocks:");
             auto inputStock = std::make_unique<Wt::WSpinBox>();
             inputStock->setStyleClass("form-control");
             auto inputStockPtr = inputStock.get();
             container->addWidget(std::move(inputStock));
 
-            auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Stock");
+            auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Item");
             buttonAddStock->setStyleClass("btn btn-primary");
 
             buttonAddStock->clicked().connect([this, inputNamePtr, inputStockPtr] {
@@ -93,11 +100,13 @@ public:
 
             // Display user information in a table
             auto table = std::make_unique<Wt::WTable>();
+            table->addStyleClass("table container table-hover");
 
             // Add table headers
             table->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"));
             table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"));
-            table->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("ACTION"));
+            table->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("ACTION"));
+            table->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("UPDATE STOCKS"));
 
             // Add user information to the table
             int row = 1; // Start from row 1 to leave space for headers
@@ -106,17 +115,40 @@ public:
                 table->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
 
                 // Create delete button for each row
-                auto deleteButton = std::make_unique<Wt::WPushButton>("Delete");
+                auto deleteButton = std::make_unique<Wt::WPushButton>("DELETE");
                 deleteButton->setStyleClass("btn btn-danger");
                 deleteButton->clicked().connect([this, stock]() {
                     deleteStock(session, stock->item);
                     refreshTable(); // Refresh table after deleting
                     });
-                table->elementAt(row, 2)->addWidget(std::move(deleteButton)); // Assuming you have two columns already
+                table->elementAt(row, 2)->addWidget(std::move(deleteButton));
+
+                // Create a horizontal layout container
+                auto inlineContainer = std::make_unique<Wt::WHBoxLayout>();
+
+                // Create input field for new stock quantity
+                auto inputNewStock = std::make_unique<Wt::WSpinBox>();
+                inputNewStock->setStyleClass("form-control w-25");
+                inlineContainer->addWidget(std::move(inputNewStock));
+
+                // Create update button for each row
+                auto updateButton = std::make_unique<Wt::WPushButton>("UPDATE");
+                updateButton->setStyleClass("btn btn-success w-25");
+                updateButton->clicked().connect([this, stock, inputNewStock = inputNewStock.get()]() {
+                    updateStock(session, stock->item, inputNewStock->value());
+                    refreshTable(); // Refresh table after updating
+                    });
+                inlineContainer->addWidget(std::move(updateButton));
+
+                // Add the inline container to the table cell
+                table->elementAt(row, 3)->setLayout(std::move(inlineContainer));
+
                 ++row;
             }
 
+
             // Add table to root
+
             root()->addWidget(std::move(table));
 
             // Commit the transaction
@@ -169,6 +201,20 @@ private:
         transaction.commit();
     }
 
+    void updateStock(dbo::Session& session, const std::string& item, int newStock) {
+        dbo::Transaction transaction(session);
+        dbo::ptr<stocks> stockPtr = session.find<stocks>().where("item = ?").bind(item);
+        if (stockPtr) {
+            stockPtr.modify()->stock = newStock; // Update the stock quantity
+            std::cout << "Stock updated for item: " << item << std::endl;
+        }
+        else {
+            std::cout << "Item not found in database: " << item << std::endl;
+        }
+        transaction.commit();
+    }
+
+
     void refreshTable() {
         // Clear current table
         root()->clear();
@@ -199,7 +245,6 @@ private:
 };
 
 int main(int argc, char** argv) {
-    std::cout << "Connecting to database..." << std::endl;
     try {
         return Wt::WRun(argc, argv, [](const Wt::WEnvironment& env) {
             return std::make_unique<MyApplication>(env);
