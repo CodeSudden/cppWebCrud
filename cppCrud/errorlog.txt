@@ -8,3 +8,8 @@ Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown server h
 Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
 Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown database 'cafems'
 Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "item", "stock" from "stocks" ': Unknown column 'stock' in 'field list'
+Wt Dbo Exception: MySQL : Failed to connect to database server: Unknown server host ' Ü½LE' (11001)
+Wt Dbo Exception: MySQL : Failed to connect to database server: Access denied for user 'root'@'localhost' (using password: YES)
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "item", "stock" from "stocks" ': Unknown column 'version' in 'field list'
+Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
+Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
