@@ -63,6 +63,54 @@ public:
         auto app = WApplication::instance();
         app->setTheme(std::make_shared<Wt::WBootstrap5Theme>());
 
+        auto rowContainer = std::make_unique<Wt::WContainerWidget>();
+        rowContainer->setStyleClass("row");
+
+        // Username input
+        auto usernameCol = std::make_unique<Wt::WContainerWidget>();
+        usernameCol->setStyleClass("col");
+        auto usernameEdit = std::make_unique<Wt::WLineEdit>();
+        usernameEdit->setPlaceholderText("Username");
+        usernameCol->addWidget(std::move(usernameEdit));
+        rowContainer->addWidget(std::move(usernameCol));
+
+        // Password input
+        auto passwordCol = std::make_unique<Wt::WContainerWidget>();
+        passwordCol->setStyleClass("col");
+        auto passwordEdit = std::make_unique<Wt::WLineEdit>();
+        passwordEdit->setPlaceholderText("Password");
+        passwordEdit->setAttributeValue("type", "password");
+        passwordCol->addWidget(std::move(passwordEdit));
+        rowContainer->addWidget(std::move(passwordCol));
+
+        // Add the row container to the root
+        root()->addWidget(std::move(rowContainer));
+
+        auto loginButton = root()->addWidget(std::make_unique<Wt::WPushButton>("Login"));
+        loginButton->setStyleClass("btn btn-primary mt-3"); // Apply Bootstrap button class
+
+        // Handle login button click
+        loginButton->clicked().connect([&] {
+            std::string username = usernameEdit->text().toUTF8();
+            std::string password = passwordEdit->text().toUTF8();
+
+            // Verify username and password (dummy logic)
+            if ((username == "BetterRaphael" && password == "iambetter") ||
+                (username == "NotSoGoodRaphael" && password == "iamsecondbest") ||
+                (username == "Reyannty" && password == "ilovemybf")) {
+                // Successful login, display main application content
+                root()->clear(); // Clear login UI
+                initializeMainApplication();
+            }
+            else {
+                // Display error message
+                root()->addWidget(std::make_unique<Wt::WText>("Invalid username or password"));
+            }
+            });
+
+    }
+private:
+    void initializeMainApplication() {
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -194,7 +242,6 @@ public:
 
             // Create a container widget for the "Stocks" table
             auto stocksTable = std::make_unique<Wt::WTable>();
-            stocksTable->addStyleClass("table container table-hover");
             auto* stocksTablePtr = stocksTable.get();
 
             // Add table headers for stocks
@@ -239,19 +286,18 @@ public:
             }
 
             auto stocksTab = tabWidget->addTab(std::move(stocksTable), "Stocks");
-            stocksTab->contents()->setStyleClass("container"); // Use Bootstrap's container-fluid class for full width
+            stocksTab->contents()->setStyleClass("table table-hover container"); // Use Bootstrap's container-fluid class for full width
 
 // ******************************************************************************************************************************************************************* //
             // Create a container widget for the "Suppliers" table
             auto suppliersTable = std::make_unique<Wt::WTable>();
-            suppliersTable->addStyleClass("table container table-hover");
             auto* suppliersTablePtr = suppliersTable.get();
 
             // Add table headers for suppliers
             suppliersTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("SUPPLIER"))->setStyleClass("fs-6 fw-bold");
             suppliersTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("CATEGORY"))->setStyleClass("fs-6 fw-bold");
             suppliersTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("STATUS"))->setStyleClass("fs-6 fw-bold");
-            suppliersTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("ACTIONS"))->setStyleClass("fs-6 fw-bold");
+            suppliersTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("UPDATE SUPPLIER"))->setStyleClass("fs-6 fw-bold");
 
             // Add data from supplier table to the table
             int supplierRow = 1; // Start from row 1 to leave space for headers
@@ -260,41 +306,31 @@ public:
                 suppliersTable->elementAt(supplierRow, 1)->addWidget(std::make_unique<Wt::WText>(supplier->category));
                 suppliersTable->elementAt(supplierRow, 2)->addWidget(std::make_unique<Wt::WText>(supplier->status));
 
+                // Create input fields for new category and status
+                auto inputNewSupplier = std::make_unique<Wt::WLineEdit>();
+                inputNewSupplier->setPlaceholderText("New Supplier Name");
+                auto inputNewCategory = std::make_unique<Wt::WLineEdit>(); // Assuming category is text input
+                inputNewCategory->setPlaceholderText("New Category Name");
+                auto inputNewStatus = std::make_unique<Wt::WLineEdit>(); // Assuming status is text input
+                inputNewStatus->setPlaceholderText("New Status");
+                auto inputNewSuppplierPtr = inputNewSupplier.get();
+                auto inputNewCategoryPtr = inputNewCategory.get();
+                auto inputNewStatusPtr = inputNewStatus.get();
+                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(inputNewSupplier));
+                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(inputNewCategory));
+                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(inputNewStatus));
+
                 // Create update button for each supplier row
                 auto update2Button = std::make_unique<Wt::WPushButton>("UPDATE");
                 update2Button->setStyleClass("btn btn-success");
-                update2Button->clicked().connect([this, supplier]() mutable {
-                    // Create a modal dialog
-                    auto modal = std::make_unique<Wt::WDialog>("Update Supplier");
-
-                    // Add input fields to the dialog
-                    auto newCategoryInput = modal->contents()->addWidget(std::make_unique<Wt::WLineEdit>());
-                    auto newStatusInput = modal->contents()->addWidget(std::make_unique<Wt::WLineEdit>());
-
-                    // Capture session by value
-                    auto sessionCopy = session;
-
-                    // Add a button to submit the input
-                    auto submitButton = modal->footer()->addWidget(std::make_unique<Wt::WPushButton>("Submit"));
-                    submitButton->clicked().connect([this, modal = std::move(modal), newCategoryInput, newStatusInput, supplier, sessionCopy]() mutable {
-                        std::string newCategory = newCategoryInput->text().toUTF8();
-                        std::string newStatus = newStatusInput->text().toUTF8();
-                        updateSupplier(sessionCopy, supplier->supplier, newCategory, newStatus);
-                        modal->accept(); // Close the modal after updating
-                        refreshTable(); // Refresh table after updating
-                        });
-
-                    // Add a button to cancel the input
-                    auto cancelButton = modal->footer()->addWidget(std::make_unique<Wt::WPushButton>("Cancel"));
-                    cancelButton->clicked().connect([modal = std::move(modal)]() {
-                        modal->reject(); // Close the modal without updating
-                        });
-
-                    // Show the modal
-                    modal->show();
+                update2Button->clicked().connect([this, supplier, inputNewSuppplierPtr, inputNewCategoryPtr, inputNewStatusPtr]() {
+                    std::string newSupplier = inputNewSuppplierPtr->text().toUTF8();
+                    std::string newCategory = inputNewCategoryPtr->text().toUTF8();
+                    std::string newStatus = inputNewStatusPtr->text().toUTF8();
+                    updateSupplier(session, supplier->supplier, newSupplier, newCategory, newStatus);
+                    refreshTable(); // Refresh table after updating
                     });
-
-                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(update2Button));
+                suppliersTable->elementAt(supplierRow, 5)->addWidget(std::move(update2Button));
 
                 auto delete2Button = std::make_unique<Wt::WPushButton>("DELETE");
                 delete2Button->setStyleClass("btn btn-danger");
@@ -302,13 +338,13 @@ public:
                     deleteSupplier(session, supplier->supplier);
                     refreshTable(); // Refresh table after deleting
                     });
-                suppliersTable->elementAt(supplierRow, 7)->addWidget(std::move(delete2Button));
+                suppliersTable->elementAt(supplierRow, 6)->addWidget(std::move(delete2Button));
 
                 ++supplierRow;
             }
 
             auto suppliersTab = tabWidget->addTab(std::move(suppliersTable), "Suppliers");
-            suppliersTab->contents()->setStyleClass("container"); // Use Bootstrap's container-fluid class for full width
+            suppliersTab->contents()->setStyleClass("table table-hover container"); // Use Bootstrap's container-fluid class for full width
 
             // Connect to the clicked signal of each tab
             stocksTab->clicked().connect([stocksTablePtr, suppliersTablePtr]() {
@@ -416,11 +452,11 @@ private:
         transaction.commit();
     }
 
-    void updateSupplier(dbo::Session& session, const std::string& supplierName,  const std::string& newCategory, const std::string& newStatus) {
+    void updateSupplier(dbo::Session& session, const std::string& supplierName, const std::string& newSupplier,  const std::string& newCategory, const std::string& newStatus) {
         dbo::Transaction transaction(session);
         dbo::ptr<Supplier> supplierPtr = session.find<Supplier>().where("supplier = ?").bind(supplierName);
         if (supplierPtr) {
-            //supplierPtr.modify()->supplier = newSupplier; // Update category const std::string& newSupplier,
+            supplierPtr.modify()->supplier = newSupplier; // Update category
             supplierPtr.modify()->category = newCategory; // Update category
             supplierPtr.modify()->status = newStatus; // Update status
             std::cout << "Supplier updated: " << supplierName << std::endl;
