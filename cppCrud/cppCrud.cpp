@@ -62,6 +62,7 @@ public:
     MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env) {
         auto app = WApplication::instance();
         app->setTheme(std::make_shared<Wt::WBootstrap5Theme>());
+
         try {
             // Open logfile for writing
             std::ofstream logfile("logfile.txt", std::ios::app);
@@ -259,8 +260,40 @@ public:
                 suppliersTable->elementAt(supplierRow, 1)->addWidget(std::make_unique<Wt::WText>(supplier->category));
                 suppliersTable->elementAt(supplierRow, 2)->addWidget(std::make_unique<Wt::WText>(supplier->status));
 
+                // Create update button for each supplier row
                 auto update2Button = std::make_unique<Wt::WPushButton>("UPDATE");
                 update2Button->setStyleClass("btn btn-success");
+                update2Button->clicked().connect([this, supplier]() mutable {
+                    // Create a modal dialog
+                    auto modal = std::make_unique<Wt::WDialog>("Update Supplier");
+
+                    // Add input fields to the dialog
+                    auto newCategoryInput = modal->contents()->addWidget(std::make_unique<Wt::WLineEdit>());
+                    auto newStatusInput = modal->contents()->addWidget(std::make_unique<Wt::WLineEdit>());
+
+                    // Capture session by value
+                    auto sessionCopy = session;
+
+                    // Add a button to submit the input
+                    auto submitButton = modal->footer()->addWidget(std::make_unique<Wt::WPushButton>("Submit"));
+                    submitButton->clicked().connect([this, modal = std::move(modal), newCategoryInput, newStatusInput, supplier, sessionCopy]() mutable {
+                        std::string newCategory = newCategoryInput->text().toUTF8();
+                        std::string newStatus = newStatusInput->text().toUTF8();
+                        updateSupplier(sessionCopy, supplier->supplier, newCategory, newStatus);
+                        modal->accept(); // Close the modal after updating
+                        refreshTable(); // Refresh table after updating
+                        });
+
+                    // Add a button to cancel the input
+                    auto cancelButton = modal->footer()->addWidget(std::make_unique<Wt::WPushButton>("Cancel"));
+                    cancelButton->clicked().connect([modal = std::move(modal)]() {
+                        modal->reject(); // Close the modal without updating
+                        });
+
+                    // Show the modal
+                    modal->show();
+                    });
+
                 suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(update2Button));
 
                 auto delete2Button = std::make_unique<Wt::WPushButton>("DELETE");
@@ -269,7 +302,7 @@ public:
                     deleteSupplier(session, supplier->supplier);
                     refreshTable(); // Refresh table after deleting
                     });
-                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::move(delete2Button));
+                suppliersTable->elementAt(supplierRow, 7)->addWidget(std::move(delete2Button));
 
                 ++supplierRow;
             }
@@ -382,6 +415,22 @@ private:
         }
         transaction.commit();
     }
+
+    void updateSupplier(dbo::Session& session, const std::string& supplierName,  const std::string& newCategory, const std::string& newStatus) {
+        dbo::Transaction transaction(session);
+        dbo::ptr<Supplier> supplierPtr = session.find<Supplier>().where("supplier = ?").bind(supplierName);
+        if (supplierPtr) {
+            //supplierPtr.modify()->supplier = newSupplier; // Update category const std::string& newSupplier,
+            supplierPtr.modify()->category = newCategory; // Update category
+            supplierPtr.modify()->status = newStatus; // Update status
+            std::cout << "Supplier updated: " << supplierName << std::endl;
+        }
+        else {
+            std::cout << "Supplier not found in database: " << supplierName << std::endl;
+        }
+        transaction.commit();
+    }
+
 
     void refreshTable() {
         // Clear current table

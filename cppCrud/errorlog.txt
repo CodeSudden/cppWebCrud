@@ -13,3 +13,4 @@ Wt Dbo Exception: MySQL : Failed to connect to database server: Access denied fo
 Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "item", "stock" from "stocks" ': Unknown column 'version' in 'field list'
 Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
 Wt Dbo Exception: MySQL : Failed to connect to database server: Can't connect to server on 'localhost' (10061)
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "category", "status" from "supplier" ': Unknown column 'status' in 'field list'
