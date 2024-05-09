@@ -71,11 +71,12 @@ public:
         app->setTheme(std::make_shared<Wt::WBootstrap5Theme>());
         // Check if the user is already logged in
 
+        setupdatabase();
+
         if (!isLoggedIn) {
             purchaseorder();
         }
         else {
-            setupdatabase();
             initializeMainApplication(); // Initialize main application if already logged in
         }
     }
@@ -169,7 +170,6 @@ private:
         inputflavor->setPlaceholderText("Flavor");
         inputflavor->setStyleClass("mt-3 w-25");
         auto flavorPtr = inputflavor.get();
-        std::cout << "Flavor: " << inputflavor << std::endl;
         storeform->addWidget(std::move(inputflavor));
 
         // Quantity input
@@ -177,7 +177,6 @@ private:
         inputquantity->setPlaceholderText("quantity");
         inputquantity->setStyleClass("mt-3 w-25");
         auto quantityPtr = inputquantity.get();
-        std::cout << "Quantity: " << inputquantity << std::endl;
         storeform->addWidget(std::move(inputquantity));
 
         // Order button
@@ -185,9 +184,24 @@ private:
         orderbutton->setStyleClass("btn btn-success mt-3 w-25");
 
         orderbutton->clicked().connect([this, flavorPtr, quantityPtr] {
-            addorder(session, flavorPtr->text().toUTF8(), quantityPtr->value());
+            // Get the current date and time
+            auto now = std::chrono::system_clock::now();
+            std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
+
+            // Initialize a struct tm variable to store the local time
+            std::tm localTime = {};
+            // Call localtime_s to populate the localTime variable with the current local time
+            localtime_s(&localTime, &currentTime);
+
+            // Format the current date as YYYY-MM-DD
+            char currentDate[11];
+            strftime(currentDate, sizeof(currentDate), "%Y-%m-%d", &localTime);
+
+            // Add order to the database with the current date
+            addorder(session, flavorPtr->text().toUTF8(), quantityPtr->value(), currentDate);
             root()->doJavaScript("location.reload();");
             });
+
 
         // Create a login button
         auto login = std::make_unique<Wt::WPushButton>("Login as admin");
@@ -261,7 +275,7 @@ private:
 
         // Retrieve data from the database
         stocksCollection itemstock = session.find<stocks>();
-        dbo::collection<sales::Ptr> suppliers = session.find<sales>();
+        dbo::collection<sales::Ptr> stocks = session.find<sales>();
 
         // Create UI elements with Bootstrap classes
         auto container = std::make_unique<Wt::WContainerWidget>();
@@ -402,17 +416,21 @@ private:
         std::string minStockItem;
 
         // Iterate over each stock item to find the minimum stock
-        for (const auto& stockItem : suppliers) {
+        int row = 1;
+        for (const auto& stockItem : stocks) {
             if (stockItem->quantity < minStock) {
                 minStock = stockItem->quantity;
                 minStockItem = stockItem->flavor;
             }
+
+            // Add the weekly lowest stock and its corresponding item to the table
+            stable->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stockItem->date)); // Week
+            stable->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(minStockItem)); // MinStockItem
+            stable->elementAt(row, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(minStock))); // MinStock
+            ++row;
         }
 
-        // Add the weekly lowest stock and its corresponding item to the table
-        stable->elementAt(1, 0)->addWidget(std::make_unique<Wt::WText>("Week 4")); // Week
-        stable->elementAt(1, 1)->addWidget(std::make_unique<Wt::WText>(minStockItem)); // MinStockItem
-        stable->elementAt(1, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(minStock))); // MinStock
+
 
         // Add the table to the container
         reportContent->addWidget(std::move(stable));
@@ -455,15 +473,15 @@ private:
         transaction.commit();
     }
 
-    void addorder(dbo::Session& session, const std::string& flavor, int quantity) {
+    void addorder(dbo::Session& session, const std::string& flavor, int quantity, const std::string& date) {
         dbo::Transaction transaction(session);
         auto newOrder = std::make_unique<sales>();
         newOrder->flavor = flavor;
         newOrder->quantity = quantity;
+        newOrder->date = date;
         session.add(std::move(newOrder));
         transaction.commit();
     }
-
 
     void deleteStock(dbo::Session& session, const std::string& flavor) {
         dbo::Transaction transaction(session);
