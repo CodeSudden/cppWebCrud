@@ -69,8 +69,8 @@ public:
     MyApplication(const Wt::WEnvironment& env) : Wt::WApplication(env) {
         auto app = WApplication::instance();
         app->setTheme(std::make_shared<Wt::WBootstrap5Theme>());
-        std::cout << "isLoggedIn: " << isLoggedIn << std::endl;
         // Check if the user is already logged in
+        purchaseorder();
         if (!isLoggedIn) {
             showLoginForm(); // Show login form if not logged in
         }
@@ -136,6 +136,50 @@ private:
 
         // Add the container to the root
         root()->addWidget(std::move(container));
+    }
+
+    void purchaseorder() {
+        auto storecontainer = std::make_unique<Wt::WContainerWidget>();
+        storecontainer->setStyleClass("container");
+
+        // Create a div to contain the login form
+        auto storeform = std::make_unique<Wt::WContainerWidget>();
+        storeform->setStyleClass("d-flex flex-column w-75");
+
+        // Title form login
+        storeform->addNew<Wt::WText>("SERVEBETES")->setStyleClass("fs-3 fw-bolder w-100 text-center");
+
+        // Flavor input
+        auto inputflavor = std::make_unique<Wt::WLineEdit>();
+        inputflavor->setPlaceholderText("Flavor");
+        inputflavor->setStyleClass("mt-3 w-25 m-auto");
+        auto flavorPtr = inputflavor.get();
+        std::cout << "Flavor: " << inputflavor << std::endl;
+        storeform->addWidget(std::move(inputflavor));
+
+        // Quantity input
+        auto inputquantity = std::make_unique<Wt::WSpinBox>();
+        inputquantity->setPlaceholderText("quantity");
+        inputquantity->setStyleClass("mt-3 w-25 m-auto");
+        auto quantityPtr = inputquantity.get();
+        std::cout << "Quantity: " << inputquantity << std::endl;
+        storeform->addWidget(std::move(inputquantity));
+
+        // Login button
+        auto orderbutton = std::make_unique<Wt::WPushButton>("Order Item");
+        orderbutton->setStyleClass("btn btn-primary mt-3 w-25 m-auto");
+
+        orderbutton->clicked().connect([this, flavorPtr, quantityPtr] {
+            addorder(session, flavorPtr->text().toUTF8(), quantityPtr->value());
+            root()->doJavaScript("location.reload();");
+            });
+
+        storeform->addWidget(std::move(orderbutton));
+        storecontainer->addWidget(std::move(storeform));
+
+        // Add the container to the root
+        root()->addWidget(std::move(storecontainer));
+
     }
 
     void initializeMainApplication() {
@@ -577,6 +621,15 @@ private:
         auto newStock = std::make_unique<stocks>();
         newStock->flavor = item;
         newStock->stock = stock;
+        session.add(std::move(newStock));
+        transaction.commit();
+    }
+
+    void addorder(dbo::Session& session, const std::string& flavor, int quantity) {
+        dbo::Transaction transaction(session);
+        auto newStock = std::make_unique<sales>();
+        newStock->flavor = flavor;
+        newStock->quantity = quantity;
         session.add(std::move(newStock));
         transaction.commit();
     }
