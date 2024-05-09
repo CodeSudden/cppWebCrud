@@ -17,6 +17,7 @@
 #include <string>
 #include <fstream>
 
+
 namespace dbo = Wt::Dbo;
 
 class stocks;
@@ -25,40 +26,38 @@ typedef dbo::collection<typename dbo::ptr<stocks>> stocksCollection;
 
 class stocks : public dbo::Dbo<stocks> {
 public:
-    std::string item;
+    std::string flavor;
     int stock;
 
     stocks() : stock(0) {}
 
     template<class Action>
     void persist(Action& a) {
-        dbo::field(a, item, "item");
-        dbo::field(a, stock, "stock");
+        dbo::field(a, flavor, "flavor");
+        dbo::field(a, stock, "stocks");
     }
 
     typedef dbo::ptr<stocks> Ptr;
 };
 
-class Supplier : public dbo::Dbo<Supplier> {
+class sales : public dbo::Dbo<sales> {
 public:
-    std::string supplier;
-    std::string item;
-    std::string address;
-    std::string contact;    
+    std::string flavor;
+    int quantity;
+    std::string date;
 
 
-    Supplier() {}
+    sales() : quantity(0) {}
 
     template<class Action>
     void persist(Action& a) {
-        dbo::field(a, supplier, "supplier");
-        dbo::field(a, item, "item");
-        dbo::field(a, address, "address");
-        dbo::field(a, contact, "contact");
+        dbo::field(a, flavor, "flavor");
+        dbo::field(a, quantity, "quantity");
+        dbo::field(a, date, "date");
 
     }
 
-    typedef dbo::ptr<Supplier> Ptr;
+    typedef dbo::ptr<sales> Ptr;
 };
 
 class MyApplication : public Wt::WApplication {
@@ -90,7 +89,7 @@ private:
         loginForm->setStyleClass("d-flex flex-column w-75");
 
         // Title form login
-        loginForm->addNew<Wt::WText>("Cafe Management System")->setStyleClass("fs-3 fw-bolder w-100 text-center");
+        loginForm->addNew<Wt::WText>("SERVEBETES")->setStyleClass("fs-3 fw-bolder w-100 text-center");
 
         // Username input
         auto usernameEdit = std::make_unique<Wt::WLineEdit>();
@@ -151,7 +150,7 @@ private:
             logfile << "Connecting to database..." << std::endl;
 
             // Set up MySQL database connection
-            auto mysql = std::make_unique<Wt::Dbo::backend::MySQL>("cafems", "root", "", "localhost");
+            auto mysql = std::make_unique<Wt::Dbo::backend::MySQL>("servebetes", "root", "", "localhost");
 
             logfile << "Database connected successfully." << std::endl;
 
@@ -163,11 +162,11 @@ private:
 
             // Map User class to the database
             session.mapClass<stocks>("stocks"); // Mapping User class to a table named "user"
-            session.mapClass<Supplier>("supplier");
+            session.mapClass<sales>("sales");
 
             // Retrieve data from the database
             stocksCollection itemstock = session.find<stocks>();
-            dbo::collection<Supplier::Ptr> suppliers = session.find<Supplier>();
+            dbo::collection<sales::Ptr> suppliers = session.find<sales>();
 
             // Create UI elements with Bootstrap classes
             auto container = std::make_unique<Wt::WContainerWidget>();
@@ -176,7 +175,7 @@ private:
             auto flexContainer = std::make_unique<Wt::WContainerWidget>();
             flexContainer->setStyleClass("d-flex justify-content-between align-items-center");
 
-            auto title = std::make_unique<Wt::WText>("Cafe Management System");
+            auto title = std::make_unique<Wt::WText>("ServeBetes Admin");
             title->setStyleClass("fs-1 fw-bolder");
 
             auto logoutButton = std::make_unique<Wt::WPushButton>("Logout");
@@ -245,7 +244,7 @@ private:
             auto supitemCol = std::make_unique<Wt::WContainerWidget>();
             supitemCol->setStyleClass("col fw-bold");
             supitemCol->addWidget(std::make_unique<Wt::WText>("Item:"));
-            auto inputSupItem = std::make_unique<Wt::WLineEdit>();
+            auto inputSupItem = std::make_unique<Wt::WSpinBox>();
             inputSupItem->setStyleClass("form-control");
             auto inputSupItemPtr = inputSupItem.get();
             supitemCol->addWidget(std::move(inputSupItem));
@@ -277,7 +276,7 @@ private:
             auto buttonAddSupplier = std::make_unique<Wt::WPushButton>("Add Supplier");
             buttonAddSupplier->setStyleClass("btn btn-primary");
             buttonAddSupplier->clicked().connect([this, inputSuppPtr, inputSupItemPtr, inputAddPtr, inputContPtr] {
-                addSupplier(session, inputSuppPtr->text().toUTF8(), inputSupItemPtr->text().toUTF8(), inputAddPtr->text().toUTF8(), inputContPtr->text().toUTF8());
+                addSupplier(session, inputSuppPtr->text().toUTF8(), inputSupItemPtr->value(), inputAddPtr->text().toUTF8(), inputContPtr->text().toUTF8());
                 Wt::WApplication::instance()->doJavaScript("location.reload();");
                 });
             button2Col->addWidget(std::move(buttonAddSupplier));
@@ -300,7 +299,7 @@ private:
             auto* stocksTablePtr = stocksTable.get();
 
             // Add table headers for stocks
-            stocksTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("ITEM"))->setStyleClass("fs-6 fw-bold");
+            stocksTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("Flavor"))->setStyleClass("fs-6 fw-bold");
             stocksTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"))->setStyleClass("fs-6 fw-bold");
             stocksTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("ACTION"))->setStyleClass("fs-6 fw-bold");
             stocksTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("UPDATE STOCKS"))->setStyleClass("fs-6 fw-bold");
@@ -308,7 +307,7 @@ private:
             // Add stock information to the table
             int stockRow = 1; // Start from row 1 to leave space for headers
             for (const auto& stock : itemstock) {
-                stocksTable->elementAt(stockRow, 0)->addWidget(std::make_unique<Wt::WText>(stock->item));
+                stocksTable->elementAt(stockRow, 0)->addWidget(std::make_unique<Wt::WText>(stock->flavor));
                 stocksTable->elementAt(stockRow, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(stock->stock)));
 
                 // Create delete button for each stock row
@@ -316,7 +315,7 @@ private:
                 deleteButton->setStyleClass("btn btn-danger");
 
                 deleteButton->clicked().connect([this, stock]() {
-                    deleteStock(session, stock->item);
+                    deleteStock(session, stock->flavor);
                     Wt::WApplication::instance()->doJavaScript("location.reload();");
                     });
                 stocksTable->elementAt(stockRow, 2)->addWidget(std::move(deleteButton));
@@ -332,7 +331,7 @@ private:
                 auto updateButton = std::make_unique<Wt::WPushButton>("UPDATE");
                 updateButton->setStyleClass("btn btn-success");
                 updateButton->clicked().connect([this, stock, inputNewStockPtr]() {
-                    updateStock(session, stock->item, inputNewStockPtr->value());
+                    updateStock(session, stock->flavor, inputNewStockPtr->value());
                     root()->doJavaScript("location.reload();");
                     });
                 inlineContainer->addWidget(std::move(updateButton));
@@ -349,27 +348,25 @@ private:
             auto* suppliersTablePtr = suppliersTable.get();
 
             // Add table headers for suppliers
-            suppliersTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("SUPPLIER"))->setStyleClass("fs-6 fw-bold");
-            suppliersTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("ITEM"))->setStyleClass("fs-6 fw-bold");
-            suppliersTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("ADDRESS"))->setStyleClass("fs-6 fw-bold");
-            suppliersTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("CONTACT"))->setStyleClass("fs-6 fw-bold");
+            suppliersTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("flavor"))->setStyleClass("fs-6 fw-bold");
+            suppliersTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("quantity"))->setStyleClass("fs-6 fw-bold");
+            suppliersTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("date"))->setStyleClass("fs-6 fw-bold");
             suppliersTable->elementAt(0, 4)->addWidget(std::make_unique<Wt::WText>("UPDATE SUPPLIER"))->setStyleClass("fs-6 fw-bold");
 
 
             // Add data from supplier table to the table
             int supplierRow = 1; // Start from row 1 to leave space for headers
             for (const auto& supplier : suppliers) {
-                suppliersTable->elementAt(supplierRow, 0)->addWidget(std::make_unique<Wt::WText>(supplier->supplier));
-                suppliersTable->elementAt(supplierRow, 1)->addWidget(std::make_unique<Wt::WText>(supplier->item));
-                suppliersTable->elementAt(supplierRow, 2)->addWidget(std::make_unique<Wt::WText>(supplier->address));
-                suppliersTable->elementAt(supplierRow, 3)->addWidget(std::make_unique<Wt::WText>(supplier->contact));
+                suppliersTable->elementAt(supplierRow, 0)->addWidget(std::make_unique<Wt::WText>(supplier->flavor));
+                suppliersTable->elementAt(supplierRow, 1)->addWidget(std::make_unique<Wt::WText>(std::to_string(supplier->quantity)));
+                suppliersTable->elementAt(supplierRow, 2)->addWidget(std::make_unique<Wt::WText>(supplier->date));
 
                 // Create input fields for new category and status
                 auto inputNewSupplier = std::make_unique<Wt::WLineEdit>();
                 inputNewSupplier->setPlaceholderText("New Supplier Name");
                 inputNewSupplier->setStyleClass("mb-1");
 
-                auto inputNewItem = std::make_unique<Wt::WLineEdit>(); // Assuming category is text input
+                auto inputNewItem = std::make_unique<Wt::WSpinBox>(); // Assuming category is text input
                 inputNewItem->setPlaceholderText("New Item Name");
                 inputNewItem->setStyleClass("mb-1");
 
@@ -396,10 +393,10 @@ private:
                 update2Button->setStyleClass("btn btn-success");
                 update2Button->clicked().connect([this, supplier, inputNewSuppplierPtr, inputNewItemPtr, inputNewAddressPtr, inputNewContactPtr]() {
                     std::string newSupplier = inputNewSuppplierPtr->text().toUTF8();
-                    std::string newCategory = inputNewItemPtr->text().toUTF8();
+                    int newCategory = inputNewItemPtr->value();
                     std::string newStatus = inputNewAddressPtr->text().toUTF8();
                     std::string newContact = inputNewContactPtr->text().toUTF8();
-                    updateSupplier(session, supplier->supplier, newSupplier, newCategory, newStatus, newContact);
+                    updateSupplier(session, supplier->flavor, newSupplier, newCategory, newStatus, newContact);
                     root()->doJavaScript("location.reload();");
                     });
                 suppliersTable->elementAt(supplierRow, 5)->addWidget(std::move(update2Button));
@@ -407,7 +404,7 @@ private:
                 auto delete2Button = std::make_unique<Wt::WPushButton>("DELETE");
                 delete2Button->setStyleClass("btn btn-danger");
                 delete2Button->clicked().connect([this, supplier]() {
-                    deleteSupplier(session, supplier->supplier);
+                    deleteSupplier(session, supplier->flavor);
                     root()->doJavaScript("location.reload();");
                     });
                 suppliersTable->elementAt(supplierRow, 6)->addWidget(std::move(delete2Button));
@@ -415,8 +412,8 @@ private:
                 ++supplierRow;
             }
 
-            auto suppliersTab = tabWidget->addTab(std::move(suppliersTable), "Suppliers");
-            suppliersTab->contents()->setStyleClass("table table-hover table-striped  container"); // Use Bootstrap's container-fluid class for full width
+            auto suppliersTab = tabWidget->addTab(std::move(suppliersTable), "Sales");
+            suppliersTab->contents()->setStyleClass("table table-hover table-striped  container");
 
 // ******************************************************************************************************************************************************************* //
 
@@ -445,7 +442,7 @@ private:
             for (const auto& stockItem : lowStock) {
                 if (stockItem->stock < minStock) {
                     minStock = stockItem->stock;
-                    minStockItem = stockItem->item;
+                    minStockItem = stockItem->flavor;
                 }
             }
 
@@ -472,28 +469,28 @@ private:
             int wstockrow = 1;
             wtable->elementAt(1, 0)->addWidget(std::make_unique<Wt::WText>("Week 1"))->setStyleClass("fw-bold");
             for (const auto& wstock : weekstock) {
-                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock->item));
+                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock->flavor));
                 wtable->elementAt(wstockrow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(wstock->stock - 1)));
                 ++wstockrow;
             }
             wtable->elementAt(wstockrow, 0)->addWidget(std::make_unique<Wt::WText>("Week 2"))->setStyleClass("fw-bold");
             stocksCollection weekstock2 = session.find<stocks>();
             for (const auto& wstock2 : weekstock2) {
-                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock2->item));
+                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock2->flavor));
                 wtable->elementAt(wstockrow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(wstock2->stock - 2)));
                 ++wstockrow;
             }
             wtable->elementAt(wstockrow, 0)->addWidget(std::make_unique<Wt::WText>("Week 3"))->setStyleClass("fw-bold");
             stocksCollection weekstock3 = session.find<stocks>();
             for (const auto& wstock3 : weekstock3) {
-                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock3->item));
+                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock3->flavor));
                 wtable->elementAt(wstockrow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(wstock3->stock - 1)));
                 ++wstockrow;
             }
             wtable->elementAt(wstockrow, 0)->addWidget(std::make_unique<Wt::WText>("Week 4"))->setStyleClass("fw-bold");
             stocksCollection weekstock4 = session.find<stocks>();
             for (const auto& wstock4 : weekstock4) {
-                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock4->item));
+                wtable->elementAt(wstockrow, 1)->addWidget(std::make_unique<Wt::WText>(wstock4->flavor));
                 wtable->elementAt(wstockrow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(wstock4->stock)));
                 ++wstockrow;
             }
@@ -578,19 +575,18 @@ private:
     void addStock(dbo::Session& session, const std::string& item, int stock) {
         dbo::Transaction transaction(session);
         auto newStock = std::make_unique<stocks>();
-        newStock->item = item;
+        newStock->flavor = item;
         newStock->stock = stock;
         session.add(std::move(newStock));
         transaction.commit();
     }
 
-    void addSupplier(dbo::Session& session, const std::string& supplier , const std::string& item, const std::string& address, const std::string& contact) {
+    void addSupplier(dbo::Session& session, const std::string& supplier , int quantity, const std::string& address, const std::string& contact) {
         dbo::Transaction transaction(session);
-        auto newSupplier = std::make_unique<Supplier>();
-        newSupplier->supplier = supplier;
-        newSupplier->item = item;
-        newSupplier->address = address;
-        newSupplier->contact = contact;
+        auto newSupplier = std::make_unique<sales>();
+        newSupplier->flavor = supplier;
+        newSupplier->quantity = quantity;
+        newSupplier->date = address;
         session.add(std::move(newSupplier));
         transaction.commit();
     }
@@ -613,7 +609,7 @@ private:
     void deleteSupplier(dbo::Session& session, const std::string& supplier) {
         dbo::Transaction transaction(session);
         // Find the supplier in the session
-        dbo::ptr<Supplier> supplierPtr = session.find<Supplier>().where("supplier = ?").bind(supplier);
+        dbo::ptr<sales> supplierPtr = session.find<sales>().where("supplier = ?").bind(supplier);
         // If the supplier exists, remove it from the session
         if (supplierPtr) {
             supplierPtr.remove(); // Remove the object from the session
@@ -638,14 +634,13 @@ private:
         transaction.commit();
     }
 
-    void updateSupplier(dbo::Session& session, const std::string& supplierName, const std::string& newSupplier,  const std::string& newItem, const std::string& newAddress, const std::string& newContact) {
+    void updateSupplier(dbo::Session& session, const std::string& supplierName, const std::string& newSupplier,  int quantity, const std::string& newAddress, const std::string& newContact) {
         dbo::Transaction transaction(session);
-        dbo::ptr<Supplier> supplierPtr = session.find<Supplier>().where("supplier = ?").bind(supplierName);
+        dbo::ptr<sales> supplierPtr = session.find<sales>().where("supplier = ?").bind(supplierName);
         if (supplierPtr) {
-            supplierPtr.modify()->supplier = newSupplier; // Update category
-            supplierPtr.modify()->item = newItem; // Update category
-            supplierPtr.modify()->address = newAddress; // Update status
-            supplierPtr.modify()->contact = newContact;
+            supplierPtr.modify()->flavor = newSupplier; // Update category
+            supplierPtr.modify()->quantity = quantity; // Update category
+            supplierPtr.modify()->date = newAddress; // Update status
             std::cout << "Supplier updated: " << supplierName << std::endl;
         }
         else {

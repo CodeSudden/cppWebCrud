@@ -1,2 +1,4 @@
 Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "item", "address", "contact" from "supplier" ': Unknown column 'item' in 'field list'
 Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "item", "address", "contact" from "supplier" ': Unknown column 'item' in 'field list'
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "flavor", "stock" from "stocks" ': Unknown column 'flavor' in 'field list'
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "item", "address", "contact" from "supplier" ': Table 'servebetes.supplier' doesn't exist
