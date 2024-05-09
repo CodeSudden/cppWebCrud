@@ -1,0 +1,2 @@
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "item", "address", "contact" from "supplier" ': Unknown column 'item' in 'field list'
+Wt Dbo Exception: error creating prepared statement: 'select "id", "version", "supplier", "item", "address", "contact" from "supplier" ': Unknown column 'item' in 'field list'
