@@ -1,2 +1,0 @@
-Wt Dbo Exception: Cannot map tables after schema was initialized.
-Wt Dbo Exception: Cannot map tables after schema was initialized.

@@ -12,6 +12,7 @@
 #include <Wt/WTabWidget.h>
 #include <Wt/WTable.h>
 #include <Wt/WText.h>
+#include <Wt/WComboBox.h>
 #include <Wt/WDialog.h>
 #include <iostream>
 #include <string>
@@ -155,8 +156,10 @@ private:
 
         root()->clear();
 
+        dbo::Transaction transaction(session);
+
         auto storecontainer = std::make_unique<Wt::WContainerWidget>();
-        storecontainer->setStyleClass("container d-flex flex-column align-items-center justify-content-center vh-100");
+        storecontainer->setStyleClass("container d-flex flex-column align-items-center justify-content-center vh-100 bg-light");
 
         // Create a div to contain the login form
         auto storeform = std::make_unique<Wt::WContainerWidget>();
@@ -166,13 +169,20 @@ private:
         storeform->addNew<Wt::WText>("ServeBetes")->setStyleClass("fs-3 fw-bolder w-100 text-center");
         storeform->addNew<Wt::WText>("Order Your Favorite Ice cream")->setStyleClass("fs-5 fw-light w-100 text-center");
 
+        stocksCollection flavors = session.find<stocks>();
 
-        // Flavor input
-        auto inputflavor = std::make_unique<Wt::WLineEdit>();
-        inputflavor->setPlaceholderText("Flavor");
-        inputflavor->setStyleClass("mt-3 w-25");
-        auto flavorPtr = inputflavor.get();
-        storeform->addWidget(std::move(inputflavor));
+        // Create a combo box for flavors
+        auto flavorComboBox = std::make_unique<Wt::WComboBox>();
+        flavorComboBox->setPlaceholderText("Select Flavor");
+        flavorComboBox->setStyleClass("mt-3 w-25");
+        auto flavorPtr = flavorComboBox.get();
+
+        // Populate the combo box with flavors from the stocks collection
+        for (const auto& findflavor : flavors) {
+            flavorComboBox->addItem(findflavor->flavor);
+        }
+
+        storeform->addWidget(std::move(flavorComboBox));
 
         // Quantity input
         auto inputquantity = std::make_unique<Wt::WSpinBox>();
@@ -200,8 +210,21 @@ private:
             strftime(currentDate, sizeof(currentDate), "%Y-%m-%d", &localTime);
 
             // Add order to the database with the current date
-            addorder(session, flavorPtr->text().toUTF8(), quantityPtr->value(), currentDate);
-            root()->doJavaScript("location.reload();");
+            addorder(session, flavorPtr->currentText().toUTF8(), quantityPtr->value(), currentDate);
+
+            // Show a dialog to thank the user for purchasing
+            auto dialog = addChild(std::make_unique<Wt::WDialog>("Thank You"));
+            auto content = dialog->contents()->addWidget(std::make_unique<Wt::WText>("Thank you for purchasing!"));
+            content->setStyleClass("text-center w-100 m-auto");
+
+            // Add a button to close the dialog and trigger reload
+            auto closeButton = dialog->footer()->addWidget(std::make_unique<Wt::WPushButton>("Close"));
+            closeButton->clicked().connect([=] {
+                dialog->accept(); // Close the dialog
+                root()->doJavaScript("location.reload();"); // Reload the page
+                });
+
+            dialog->show();
             });
 
 
@@ -217,8 +240,10 @@ private:
 
         // Add the container to the root
         root()->addWidget(std::move(storecontainer));
-    }
 
+        transaction.commit();
+
+    }
 
 
     void setupdatabase() {
@@ -435,7 +460,6 @@ private:
         dbo::collection<sales::Ptr> allSales = session.find<sales>().where("date >= ?").bind(std::string(formattedDate));
         dbo::collection<sales::Ptr> mostsale = session.find<sales>();
 
-
         // Create a map to store daily purchases
         std::map<std::string, std::map<std::string, int>> dailyPurchases; // Key: Date, Value: Map of flavor and quantity
 
@@ -472,6 +496,8 @@ private:
         // Add the table to the container
         reportContent->addWidget(std::move(stable));
 
+        reportContent->addWidget(std::make_unique<Wt::WText>("Most Purchase Flavor"))->setStyleClass("fs-4 fw-bold");
+
         // Create a table
         auto otable = std::make_unique<Wt::WTable>();
         otable->addStyleClass("table table-striped table-hover");
@@ -481,16 +507,50 @@ private:
         otable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("FLAVOR"))->setStyleClass("fs-6 fw-bold");
         otable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("QUANTITY"))->setStyleClass("fs-6 fw-bold");
 
+        // Initialize variables to store the maximum sale and corresponding flavor and date
+        int maxSale = std::numeric_limits<int>::min(); // Initialize with minimum possible value
+        std::string maxSaleItem;
+        std::string maxSaleDate;
+
+        // Find the most purchased flavor
+        for (const auto& sale : mostsale) {
+            if (sale->quantity > maxSale) {
+                maxSale = sale->quantity;
+                maxSaleItem = sale->flavor;
+                maxSaleDate = sale->date;
+            }
+        }
+
+        // Display the most purchased flavor in the table
+        otable->elementAt(1, 0)->addWidget(std::make_unique<Wt::WText>(maxSaleDate)); // Date
+        otable->elementAt(1, 1)->addWidget(std::make_unique<Wt::WText>(maxSaleItem)); // Most purchased flavor
+        otable->elementAt(1, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(maxSale))); // Quantity
+
+        reportContent->addWidget(std::move(otable));
+
+        reportContent->addWidget(std::make_unique<Wt::WText>("All Sales"))->setStyleClass("fs-4 fw-bold");
+
+        // Create a table
+        auto ttable = std::make_unique<Wt::WTable>();
+        ttable->addStyleClass("table table-striped table-hover");
+
+        dbo::collection<sales::Ptr> totalsales = session.find<sales>();
+
+        // Add table headers
+        ttable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("DATE"))->setStyleClass("fs-6 fw-bold");
+        ttable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("FLAVOR"))->setStyleClass("fs-6 fw-bold");
+        ttable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("QUANTITY"))->setStyleClass("fs-6 fw-bold");
+
         // Display the most purchased flavor for each date
         int orow = 1;
-        for (const auto& sale : mostsale) {
-            otable->elementAt(orow, 0)->addWidget(std::make_unique<Wt::WText>(sale->date)); // Date
-            otable->elementAt(orow, 1)->addWidget(std::make_unique<Wt::WText>(sale->flavor)); // Most purchased flavor
-            otable->elementAt(orow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(sale->quantity))); // Quantity
+        for (const auto& tsale : totalsales) {
+            ttable->elementAt(orow, 0)->addWidget(std::make_unique<Wt::WText>(tsale->date)); // Date
+            ttable->elementAt(orow, 1)->addWidget(std::make_unique<Wt::WText>(tsale->flavor)); // Most purchased flavor
+            ttable->elementAt(orow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(tsale->quantity))); // Quantity
             ++orow;
         }
 
-        reportContent->addWidget(std::move(otable));
+        reportContent->addWidget(std::move(ttable));
 
         auto reportTab = tabWidget->addTab(std::move(reportContent), "Reports");
         reportTab->contents()->setStyleClass("container text-center");
