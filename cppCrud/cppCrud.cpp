@@ -122,8 +122,10 @@ private:
 
             // Verify username and password (dummy logic)
             if ((username == "a" && password == "a") ||
-                (username == "NotSoGoodRaphael" && password == "iamsecondbest") ||
-                (username == "Reyannty" && password == "ilovemybf")) {
+                (username == "kevintusi@gmail.servebetes.com" && password == "12345") ||
+                (username == "ivanjuanier@gmail.servebetes.com" && password == "12345") ||
+                (username == "andreamagallanes@gmail.servebetes.com" && password == "12345") ||
+                (username == "hristianumadac@gmail.servebets.com" && password == "12345")) {
                 // Successful login, set isLoggedIn flag and initialize main application
                 isLoggedIn = true;
                 root()->clear(); // Clear login UI
@@ -275,7 +277,6 @@ private:
 
         // Retrieve data from the database
         stocksCollection itemstock = session.find<stocks>();
-        dbo::collection<sales::Ptr> stocks = session.find<sales>();
 
         // Create UI elements with Bootstrap classes
         auto container = std::make_unique<Wt::WContainerWidget>();
@@ -307,7 +308,7 @@ private:
         // Item input
         auto itemCol = std::make_unique<Wt::WContainerWidget>();
         itemCol->setStyleClass("col fw-bold");
-        itemCol->addWidget(std::make_unique<Wt::WText>("Item:"));
+        itemCol->addWidget(std::make_unique<Wt::WText>("Flavor:"));
         auto inputName = std::make_unique<Wt::WLineEdit>();
         inputName->setStyleClass("form-control");
         auto inputNamePtr = inputName.get();
@@ -327,7 +328,7 @@ private:
         // Add Item button
         auto buttonCol = std::make_unique<Wt::WContainerWidget>();
         buttonCol->setStyleClass("col-auto align-self-end"); // Use col-auto to make the column width auto-adjust
-        auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Item");
+        auto buttonAddStock = std::make_unique<Wt::WPushButton>("Add Flavor");
         buttonAddStock->setStyleClass("btn btn-primary");
         buttonAddStock->clicked().connect([this, inputNamePtr, inputStockPtr] {
             addFlavor(session, inputNamePtr->text().toUTF8(), inputStockPtr->value());
@@ -354,7 +355,7 @@ private:
         stocksTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("Flavor"))->setStyleClass("fs-6 fw-bold");
         stocksTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"))->setStyleClass("fs-6 fw-bold");
         stocksTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("ACTION"))->setStyleClass("fs-6 fw-bold");
-        stocksTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("UPDATE STOCKS"))->setStyleClass("fs-6 fw-bold");
+        stocksTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("ADD STOCKS"))->setStyleClass("fs-6 fw-bold");
 
         // Add stock information to the table
         int stockRow = 1; // Start from row 1 to leave space for headers
@@ -380,10 +381,10 @@ private:
             inlineContainer->addWidget(std::move(inputNewStock));
 
             // Create update button for each stock row
-            auto updateButton = std::make_unique<Wt::WPushButton>("UPDATE");
+            auto updateButton = std::make_unique<Wt::WPushButton>("Add Stock");
             updateButton->setStyleClass("btn btn-success");
             updateButton->clicked().connect([this, stock, inputNewStockPtr]() {
-                updateStock(session, stock->flavor, inputNewStockPtr->value());
+                addStock(session, stock->flavor, inputNewStockPtr->value());
                 root()->doJavaScript("location.reload();");
                 });
             inlineContainer->addWidget(std::move(updateButton));
@@ -400,6 +401,9 @@ private:
         auto* reportContentPtr = reportContent.get();
 
         reportContent->addWidget(std::make_unique<Wt::WText>("Sales Analytics"))->setStyleClass("fs-4 fw-bold");
+        reportContent->addNew<Wt::WBreak>();
+        reportContent->addNew<Wt::WBreak>();
+        reportContent->addWidget(std::make_unique<Wt::WText>("Most purchased flavors daily (10 days)"))->setStyleClass("fs-4 fw-bold");
 
         // Create a table
         auto stable = std::make_unique<Wt::WTable>();
@@ -410,33 +414,86 @@ private:
         stable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("FLAVOR"))->setStyleClass("fs-6 fw-bold");
         stable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("QUANTITY"))->setStyleClass("fs-6 fw-bold");
 
+        // Get the current date
+        std::time_t currentTime = std::time(nullptr);
+        std::tm currentDate;
+        #if defined(_WIN32)
+        localtime_s(&currentDate, &currentTime);
+        #else
+        currentDate = *std::localtime(&currentTime);
+        #endif
 
-        // Initialize variables to store the minimum stock and corresponding item
-        int minStock = std::numeric_limits<int>::max(); // Initialize with maximum possible value
-        std::string minStockItem;
+        // Calculate the date 10 days ago
+        std::tm tenDaysAgo = currentDate;
+        tenDaysAgo.tm_mday -= 10;
+        std::mktime(&tenDaysAgo);
 
-        // Iterate over each stock item to find the minimum stock
-        int row = 1;
-        for (const auto& stockItem : stocks) {
-            if (stockItem->quantity < minStock) {
-                minStock = stockItem->quantity;
-                minStockItem = stockItem->flavor;
-            }
+        char formattedDate[11]; // Room for "YYYY-MM-DD\0"
+        std::strftime(formattedDate, sizeof(formattedDate), "%Y-%m-%d", &tenDaysAgo);
 
-            // Add the weekly lowest stock and its corresponding item to the table
-            stable->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(stockItem->date)); // Week
-            stable->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(minStockItem)); // MinStockItem
-            stable->elementAt(row, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(minStock))); // MinStock
-            ++row;
+        // Find all sales items within the last 10 days
+        dbo::collection<sales::Ptr> allSales = session.find<sales>().where("date >= ?").bind(std::string(formattedDate));
+        dbo::collection<sales::Ptr> mostsale = session.find<sales>();
+
+
+        // Create a map to store daily purchases
+        std::map<std::string, std::map<std::string, int>> dailyPurchases; // Key: Date, Value: Map of flavor and quantity
+
+        // Aggregate sales data by date and flavor
+        for (const auto& saleItem : allSales) {
+            dailyPurchases[saleItem->date][saleItem->flavor] += saleItem->quantity;
         }
 
+        // Find the most purchased flavor for each date
+        std::map<std::string, std::pair<std::string, int>> mostPurchasedFlavor; // Key: Date, Value: (Flavor, Quantity)
+        for (const auto& dailyPurchase : dailyPurchases) {
+            const std::string& date = dailyPurchase.first;
+            const auto& flavorQuantities = dailyPurchase.second;
+            std::string mostFlavor;
+            int maxQuantity = 0;
+            for (const auto& flavorQuantity : flavorQuantities) {
+                if (flavorQuantity.second > maxQuantity) {
+                    mostFlavor = flavorQuantity.first;
+                    maxQuantity = flavorQuantity.second;
+                }
+            }
+            mostPurchasedFlavor[date] = std::make_pair(mostFlavor, maxQuantity);
+        }
 
+        // Display the most purchased flavor for each date
+        int row = 1;
+        for (const auto& dailyPurchase : mostPurchasedFlavor) {
+            stable->elementAt(row, 0)->addWidget(std::make_unique<Wt::WText>(dailyPurchase.first)); // Date
+            stable->elementAt(row, 1)->addWidget(std::make_unique<Wt::WText>(dailyPurchase.second.first)); // Most purchased flavor
+            stable->elementAt(row, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(dailyPurchase.second.second))); // Quantity
+            ++row;
+        }
 
         // Add the table to the container
         reportContent->addWidget(std::move(stable));
 
+        // Create a table
+        auto otable = std::make_unique<Wt::WTable>();
+        otable->addStyleClass("table table-striped table-hover");
+
+        // Add table headers
+        otable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("DATE"))->setStyleClass("fs-6 fw-bold");
+        otable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("FLAVOR"))->setStyleClass("fs-6 fw-bold");
+        otable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("QUANTITY"))->setStyleClass("fs-6 fw-bold");
+
+        // Display the most purchased flavor for each date
+        int orow = 1;
+        for (const auto& sale : mostsale) {
+            otable->elementAt(orow, 0)->addWidget(std::make_unique<Wt::WText>(sale->date)); // Date
+            otable->elementAt(orow, 1)->addWidget(std::make_unique<Wt::WText>(sale->flavor)); // Most purchased flavor
+            otable->elementAt(orow, 2)->addWidget(std::make_unique<Wt::WText>(std::to_string(sale->quantity))); // Quantity
+            ++orow;
+        }
+
+        reportContent->addWidget(std::move(otable));
+
         auto reportTab = tabWidget->addTab(std::move(reportContent), "Reports");
-        reportTab->contents()->setStyleClass("container");
+        reportTab->contents()->setStyleClass("container text-center");
 
 // ******************************************************************************************************************************************************************* //
 
@@ -498,12 +555,11 @@ private:
         transaction.commit();
     }
 
-
-    void updateStock(dbo::Session& session, const std::string& flavor, int newStock) {
+    void addStock(dbo::Session& session, const std::string& flavor, int newStock) {
         dbo::Transaction transaction(session);
         dbo::ptr<stocks> stockPtr = session.find<stocks>().where("flavor = ?").bind(flavor);
         if (stockPtr) {
-            stockPtr.modify()->stock = newStock; // Update the stock quantity
+            stockPtr.modify()->stock += newStock; // add stock
             std::cout << "Stock updated for item: " << flavor << std::endl;
         }
         else {
