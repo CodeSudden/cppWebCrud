@@ -380,7 +380,7 @@ private:
         stocksTable->elementAt(0, 0)->addWidget(std::make_unique<Wt::WText>("Flavor"))->setStyleClass("fs-6 fw-bold");
         stocksTable->elementAt(0, 1)->addWidget(std::make_unique<Wt::WText>("STOCK"))->setStyleClass("fs-6 fw-bold");
         stocksTable->elementAt(0, 2)->addWidget(std::make_unique<Wt::WText>("ACTION"))->setStyleClass("fs-6 fw-bold");
-        stocksTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("ADD STOCKS"))->setStyleClass("fs-6 fw-bold");
+        stocksTable->elementAt(0, 3)->addWidget(std::make_unique<Wt::WText>("UPDATE STOCKS"))->setStyleClass("fs-6 fw-bold");
 
         // Add stock information to the table
         int stockRow = 1; // Start from row 1 to leave space for headers
@@ -619,7 +619,7 @@ private:
         dbo::Transaction transaction(session);
         dbo::ptr<stocks> stockPtr = session.find<stocks>().where("flavor = ?").bind(flavor);
         if (stockPtr) {
-            stockPtr.modify()->stock += newStock; // add stock
+            stockPtr.modify()->stock = newStock; // add stock
             std::cout << "Stock updated for item: " << flavor << std::endl;
         }
         else {
